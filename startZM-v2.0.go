@@ -3,7 +3,7 @@
 package main
 
 import (
-	"fmt"
+	"flag"
 	"log"
 	"os"
 	"runtime"
@@ -31,22 +31,26 @@ type StreamProc struct {
 var wg sync.WaitGroup
 
 func main() {
+	flags()                                                        //解析命令行参数
 	var stream map[string]StreamInfo = make(map[string]StreamInfo) //MAP变量
 	var sm chan StreamInfo                                         //定义通道，用于向子进程传递数据
 	var sp chan StreamProc                                         //定义子处理进程 发送的通道
+	var stream1 map[string]string
+
 	sm = make(chan StreamInfo, 1)
 	sp = make(chan StreamProc, 1)
+
 	stream1, err := rJson("stream.json") //读取配置文件并赋值给map
 	if err != nil {
-		fmt.Println("readFile Fail:", err.Error())
+		log.Println("readFile Fail:", err.Error())
 	}
 	var streamcount int
-	streamcount = len(stream1)
-	log.Println("stream1 len:", streamcount)
+	streamcount = len(stream1) //取得要转码流的数量
+	log.Println("stream1 number:", streamcount)
 
 	cpucount := runtime.NumCPU()
-	log.Println("cpu num:%s", cpucount)
-	time.Sleep(time.Second * 1)
+	log.Println("cpu core num:", cpucount)
+	time.Sleep(time.Second * 1) //休眠1秒
 	runtime.GOMAXPROCS(cpucount)
 
 	wg.Add(streamcount + 1)
@@ -57,7 +61,7 @@ func main() {
 		//log.Println(k, stream1[k])
 		stream[k] = StreamInfo{0, k, v}
 		sm <- StreamInfo{0, k, v}
-		go ForkFF(sm, sp)
+		go ForkFF(sm, sp) //启动进程调用ffmpeg
 	}
 	//go jk(sm, sp, stream)
 	jk(sm, sp, stream)
@@ -167,4 +171,18 @@ func rJson(filename string) (map[string]string, error) {
 	        }
 	      log.Println("read json streamconf end!")*/
 	return streamconf, nil
+}
+
+func flags() {
+	//取命令行参数并解析
+	zmnum := flag.Int("zmnum", 20, "最大的转码数量")
+	corenum := flag.Int("corenum", 1, "CPU核心数量")
+	v := flag.Bool("v", false, "显示版本信息")
+	flag.Parse()
+	if *v == true {
+		log.Println("print verison!")
+		os.Exit(100)
+	}
+	log.Println("分析命令行输入参数  Args \t zmnum:", *zmnum, "; corenum:", *corenum)
+
 }
